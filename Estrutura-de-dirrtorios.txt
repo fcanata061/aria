@@ -1,0 +1,19 @@
+/var/db/aria/
+ ├── repo/
+ │    ├── core/
+ │    │    └── pkgname/
+ │    │         ├── build
+ │    │         ├── version
+ │    │         ├── sources
+ │    │         ├── checksums
+ │    │         └── depends
+ │    └── extra/
+ │         └── ...
+ ├── installed/
+ │    └── pkgname/
+ │         ├── version
+ │         ├── manifest
+ │         └── depends
+/cache/aria/
+ ├── sources/
+ └── build/
