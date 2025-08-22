@@ -16,38 +16,6 @@ aria_find_pkg() {
 }
 
 # Instala pacote
-aria_install() {
-    pkg=$1
-    path=$(aria_find_pkg "$pkg") || { echo "Pacote $pkg não encontrado"; exit 1; }
-
-    # Carregar metadados
-    ver=$(cat "$path/version")
-    src=$(cat "$path/sources")
-    sum=$(cat "$path/checksums")
-
-    mkdir -p "$ARIA_SRC" "$ARIA_BUILD"
-
-    # Baixar fontes
-    cd "$ARIA_SRC"
-    [ ! -f "$(basename "$src")" ] && curl -LO "$src"
-
-    # Verificar checksum
-    echo "$sum  $(basename "$src")" | sha256sum -c -
-
-    # Extrair e compilar
-    cd "$ARIA_BUILD"
-    rm -rf "$pkg-$ver"
-    tar xf "$ARIA_SRC/$(basename "$src")"
-    cd "$pkg-$ver"
-    sh "$path/build"
-
-    # Registrar instalação
-    mkdir -p "$ARIA_INSTALLED/$pkg"
-    echo "$ver" > "$ARIA_INSTALLED/$pkg/version"
-    find "$ARIA_ROOT" -type f > "$ARIA_INSTALLED/$pkg/manifest"
-
-    color "✓ Instalado $pkg-$ver"
-}
 
 # Remover pacote
 aria_remove() {
@@ -70,3 +38,44 @@ case "$1" in
     l|list)    aria_list;;
     *) echo "Uso: aria [install|remove|list] pacote";;
 esac
+# Instala o pacote
+aria_install() {
+    pkg=$1
+    path=$(aria_find_pkg "$pkg") || { echo "Pacote $pkg não encontrado"; exit 1; }
+
+    ver=$(cat "$path/version")
+    src=$(cat "$path/sources")
+    sum=$(cat "$path/checksums")
+
+    mkdir -p "$ARIA_SRC" "$ARIA_BUILD"
+
+    # Baixar fontes
+    cd "$ARIA_SRC"
+    [ ! -f "$(basename "$src")" ] && curl -LO "$src"
+
+    # Verificar checksum
+    echo "$sum  $(basename "$src")" | sha256sum -c -
+
+    # Extrair e compilar
+    cd "$ARIA_BUILD"
+    rm -rf "$pkg-$ver"
+    tar xf "$ARIA_SRC/$(basename "$src")"
+    cd "$pkg-$ver"
+
+    # Criar diretório temporário para "fake root"
+    fakeroot="$ARIA_BUILD/$pkg-pkg"
+    mkdir -p "$fakeroot"
+
+    # Rodar build script, passando $1 = destino
+    sh "$path/build" "$fakeroot"
+
+    # Mover conteúdo para o sistema
+    (cd "$fakeroot" && tar cf - .) | (cd "$ARIA_ROOT" && $ARIA_SU tar xpf -)
+
+    # Registrar instalação
+    mkdir -p "$ARIA_INSTALLED/$pkg"
+    echo "$ver" > "$ARIA_INSTALLED/$pkg/version"
+    (cd "$fakeroot" && find . -type f) > "$ARIA_INSTALLED/$pkg/manifest"
+
+    color "✓ Instalado $pkg-$ver"
+}
